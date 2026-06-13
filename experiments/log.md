@@ -43,7 +43,7 @@ Template:
   rank_pattern (open-question 4) since r=8 is loose on the narrow k/v.
 
 ## Run 002 — prompt loss masking on (Approach A)
-- commit: _this commit_ (branch `feat/loss-masking`)
+- commit: 52e741e (branch `feat/loss-masking`)
 - hypothesis: masking prompt tokens (loss on response only) improves
   instruction-following vs the unmasked Run 001. Judge by generation, not loss
   (masked/unmasked loss aren't comparable — different denominators, math/03 §2).
