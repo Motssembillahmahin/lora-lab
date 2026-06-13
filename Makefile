@@ -33,6 +33,10 @@ merge: ## Merge the LoRA adapter into the base model
 eval: ## Response-only eval NLL/perplexity (ADAPTER=base for the un-adapted model)
 	uv run python -m src.eval $(CONFIG) $(ADAPTER)
 
+.PHONY: study
+study: ## Paired seed study: masked vs unmasked across seeds (SEEDS=0,1,2 N=150)
+	uv run python -m src.study $(CONFIG) $(SEEDS) $(N)
+
 .PHONY: lint
 lint: ## Lint with ruff
 	uv run ruff check src

@@ -107,3 +107,17 @@ def test_all_prompt_example_is_filtered(tok):
         max_len=8,
     )
     assert ex is None
+
+
+def test_all_prompt_example_filtered_even_when_unmasked(tok):
+    # The seed study needs masked/unmasked to train on the SAME examples, so the
+    # all-prompt filter must fire regardless of mask_prompt (ADR 0005).
+    ex = build_example(
+        tok,
+        "This is a fairly long instruction that on its own exceeds the cap.",
+        None,
+        "irrelevant response",
+        max_len=8,
+        mask_prompt=False,
+    )
+    assert ex is None

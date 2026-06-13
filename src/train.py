@@ -18,6 +18,7 @@ from transformers import (
     DataCollatorForSeq2Seq,
     Trainer,
     TrainingArguments,
+    set_seed,
 )
 
 from src.data import build_example
@@ -28,8 +29,11 @@ def load_config(path: str) -> dict:
         return yaml.safe_load(f)
 
 
-def main(config_path: str) -> None:
-    cfg = load_config(config_path)
+def train(cfg: dict) -> str:
+    # Seed everything (LoRA A init, dropout, data shuffle) for reproducible /
+    # paired runs when cfg sets a seed. See ADR 0005.
+    if "seed" in cfg:
+        set_seed(cfg["seed"])
 
     # CPU-only: cap threads to the physical/logical cores we have.
     torch.set_num_threads(cfg.get("num_threads", 12))
@@ -115,6 +119,11 @@ def main(config_path: str) -> None:
     model.save_pretrained(cfg["output_dir"])
     tok.save_pretrained(cfg["output_dir"])
     print(f"Saved adapter to {cfg['output_dir']}")
+    return cfg["output_dir"]
+
+
+def main(config_path: str) -> None:
+    train(load_config(config_path))
 
 
 if __name__ == "__main__":

@@ -28,17 +28,20 @@ def build_example(tok, instruction, context, response, max_len, mask_prompt=True
     # transformers returns a BatchEncoding for tokenize=True; pull the ids list.
     full_ids = tok.apply_chat_template(messages, tokenize=True, return_dict=True)["input_ids"]
     full_ids = full_ids[:max_len]
-    labels = list(full_ids)
 
+    # Prompt incl. the assistant header (add_generation_prompt=True): this is
+    # exactly the prefix the model sees before it should start generating.
+    # Computed regardless of mask_prompt so the all-prompt filter fires the same
+    # way for masked and unmasked runs (clean paired control — ADR 0005).
+    prompt_ids = tok.apply_chat_template(
+        messages[:-1], tokenize=True, return_dict=True, add_generation_prompt=True
+    )["input_ids"]
+    prompt_len = len(prompt_ids)
+    if prompt_len >= len(full_ids):
+        return None  # no response tokens survive truncation -> drop this example
+
+    labels = list(full_ids)
     if mask_prompt:
-        # Prompt incl. the assistant header (add_generation_prompt=True): this is
-        # exactly the prefix the model sees before it should start generating.
-        prompt_ids = tok.apply_chat_template(
-            messages[:-1], tokenize=True, return_dict=True, add_generation_prompt=True
-        )["input_ids"]
-        prompt_len = len(prompt_ids)
-        if prompt_len >= len(full_ids):
-            return None  # no response tokens survive -> filter this example
         labels[:prompt_len] = [IGNORE_INDEX] * prompt_len
 
     return {
