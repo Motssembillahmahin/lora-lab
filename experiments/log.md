@@ -20,7 +20,7 @@ Template:
 ---
 
 ## Run 001 — baseline r=8, attention-only
-- commit: f3cd7a5 (branch `exp/01-baseline-r8`)
+- commit: d5d8126 (branch `exp/01-baseline-r8`)
 - hypothesis: sanity-check the pipeline end-to-end and ground the §1/§6 math —
   does the printed trainable-param count match the GQA decomposition, and does
   the run fit in 14 GB RAM?
