@@ -64,14 +64,15 @@ optimizer state for every one (§6), and (c) a full-size checkpoint per saved
 model. On a 14 GB CPU box that is a non-starter. The question LoRA answers is:
 **can we get most of the adaptation benefit while only training a tiny slice?**
 
-> Honesty check: $q/k/v/o$ are not all $896\times896$ in Qwen2.5-0.5B. It uses
-> grouped-query attention (GQA): `q_proj` and `o_proj` are full hidden-size, but
-> `k_proj`/`v_proj` project to a *smaller* KV dimension (fewer KV heads than
-> query heads). So $7.7\times10^7$ is an upper-bound-flavored approximation that
-> pretends all four are square. The LoRA math below is identical regardless of
-> the exact $d, k$ per matrix — only the per-matrix count changes. We'll verify
-> the real numbers empirically when `model.print_trainable_parameters()` runs in
-> `src/train.py`.
+> Honesty check (now verified empirically): $q/k/v/o$ are not all $896\times896$
+> in Qwen2.5-0.5B. It uses grouped-query attention (GQA): 14 query heads but only
+> 2 KV heads at `head_dim=64`. So `q_proj` and `o_proj` are full hidden-size
+> ($896\times896$), but `k_proj`/`v_proj` project to a *smaller* KV dimension of
+> $2\times64 = 128$. The $7.7\times10^7$ figure above is an upper-bound-flavored
+> approximation that pretends all four are square; the LoRA math below is
+> identical regardless of the exact $d, k$ per matrix — only the per-matrix count
+> changes. §6 carries the **measured** trainable-parameter count, which matches a
+> hand GQA decomposition to the exact parameter.
 
 ---
 
@@ -402,12 +403,31 @@ they scale with the number of **trainable** params, not total params. Frozen
 $W_0$ needs none of this — no grad, no $m$, no $v$ — it just sits there as a
 constant we read during the forward pass.
 
-Order-of-magnitude, attention-only, treating the four projections as square
-(upper-bound flavor, §1): trainable params $\approx 24 \times 4 \times 14{,}336
-\approx 1.38\times10^6$.
+Trainable count, attention-only — **measured**, not estimated. Running
+`make train` printed:
+
+```
+trainable params: 1,081,344 || all params: 495,114,112 || trainable%: 0.2184
+```
+
+That $1{,}081{,}344$ is reproducible by hand once you account for GQA (§1). With
+$r=8$, LoRA params per matrix are $r(d+k)$:
+
+| proj | shape $d\times k$ | $r(d+k)$ |
+|------|-------------------|----------|
+| `q_proj` | $896\times896$ | $14{,}336$ |
+| `k_proj` | $128\times896$ | $8{,}192$ |
+| `v_proj` | $128\times896$ | $8{,}192$ |
+| `o_proj` | $896\times896$ | $14{,}336$ |
+| **per layer** | | $45{,}056$ |
+
+$45{,}056 \times 24\text{ layers} = 1{,}081{,}344$ — exact. The naive square
+approximation ($24\times4\times14{,}336 \approx 1.38\times10^6$) overcounts by
+~300k precisely because $k/v$ are narrow. Trainable fraction: $0.2184\%$ of the
+$495\text{M}$-param model — well under 1%, as promised.
 
 - LoRA optimizer state (Adam $m,v$, fp32):
-  $1.38\times10^6 \times 2 \times 4\,\text{B} \approx 11$ MB.
+  $1.08\times10^6 \times 2 \times 4\,\text{B} \approx 8.6$ MB.
 - Full fine-tuning of those same matrices: $\approx 7.7\times10^7$ params, so
   Adam state $\approx 7.7\times10^7 \times 2 \times 4\,\text{B} \approx 616$ MB —
   and that's *attention only*; include MLP and the full-model optimizer state
@@ -483,3 +503,13 @@ is *good* is something to measure. Things I'd actually run:
    extra trainable params and RAM. Does adapting MLP help per-param more or less
    than adapting attention? The original LoRA paper adapted attention only; find
    out for *this* model and task whether that still holds.
+
+4. **Is a single global $r$ even the right knob under GQA?** The measured count
+   (§6) shows `k_proj`/`v_proj` map into a 128-dim output but still get $r=8$.
+   Rank 8 on a 128-dim space caps the update at $8/128 = 6.25\%$ of full rank;
+   rank 8 on the 896-dim `q`/`o` outputs caps it at $8/896 = 0.89\%$. So the
+   *same* $r$ is a far looser constraint on $k/v$ than on $q/o$ — uniform $r$ is
+   not uniform capacity. Does that matter? PEFT supports per-module `rank_pattern`
+   / `alpha_pattern`; one could give $q/o$ a higher rank than $k/v$ (or vice
+   versa). Worth a controlled run in `02-rank-and-alpha.md`: does spending rank
+   budget on the wide matrices beat spreading it evenly?
