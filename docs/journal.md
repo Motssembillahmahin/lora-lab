@@ -78,3 +78,26 @@ Append-only narrative of the LoRA Lab. Newest entries at the bottom.
   response-only eval loss on a held-out set (apples-to-apples), and/or pick a
   setup where the base is actually weak so there's signal to move.
 - Next: a held-out eval harness, or the rank sweep (math/02).
+
+---
+
+## Session 3 — held-out eval harness
+
+- Built the metric Run 002 was missing: `src/eval.py` + `make eval`, a
+  response-only token-weighted NLL on a disjoint Dolly slice (`train[300:400]`).
+  TDD'd the pure `weighted_mean` first (corpus mean, not mean-of-means; zero-token
+  guard returns 0.0 not NaN). ADR 0004 records choosing the custom loop over
+  `Trainer.evaluate()` (whose batch=1 eval_loss is mean-of-means).
+- Three-way result (same 98 examples / 7821 response tokens, so comparable):
+  base ppl 8.53 → Run 001 (unmasked) 7.55 → Run 002 (masked) **7.45**.
+- **The metric earned its keep.** Eyeballing 3 generations (Session 2) said
+  "no difference"; the token-weighted NLL shows masked beats unmasked by ΔNLL
+  ≈ 0.013 (~1.3% ppl) — small but in the predicted direction, and both adapters
+  clearly beat the base.
+- Stayed honest: the gap is small, single-seed, and Run 002 trained on 297 vs
+  300 examples — so I logged it as "directionally right, not yet attributable,"
+  with the seed-controlled repeat as the way to actually prove it.
+- Lesson reinforced: pick the metric before trusting the conclusion. The math
+  (03 §2) said train loss wasn't comparable; eval NLL on a fixed denominator is.
+- Next: seed-controlled masking repeat, or the rank sweep (math/02) — now there's
+  a real number to plot against r.

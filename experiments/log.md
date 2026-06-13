@@ -69,3 +69,27 @@ Template:
   signal: more examples / more epochs, or a task the instruct base is weak at;
   (c) the |R|-weighted argument (math/03 §3) predicts a bigger effect when
   prompts dwarf responses — worth constructing such a slice deliberately.
+
+## Eval — held-out response NLL (ADR 0004)
+- harness: `make eval`, `src/eval.py`. Same held-out slice `train[300:400]`
+  (disjoint from training), same masking → comparable denominators. 98/100
+  examples scored (2 dropped: prompt ≥ max_len), 7821 response tokens each.
+- numbers:
+
+  | adapter            | response-NLL | perplexity | vs base |
+  |--------------------|-------------:|-----------:|--------:|
+  | base (no adapter)  | 2.1440       | 8.53       | —       |
+  | Run 001 (unmasked) | 2.0219       | 7.55       | −11.5%  |
+  | Run 002 (masked)   | **2.0088**   | **7.45**   | −12.7%  |
+
+- read: both adapters clearly beat the base (LoRA works). Masked edges out
+  unmasked by ΔNLL ≈ 0.013 (~1.3% perplexity) — small, but in the direction
+  math/03 predicts. The generation eyeball (Run 002) couldn't see this; the
+  token-weighted metric can.
+- honest caveats: (1) no seed-variance estimate — a single training run each, so
+  0.013 could be partly noise; (2) Run 002 trained on 297 vs Run 001's 300
+  examples, a second uncontrolled variable; (3) the effect is small, consistent
+  with the instruct-base confound. To *attribute* the gain to masking: repeat
+  with fixed seeds across N runs, or a same-297-examples unmasked control.
+- next: seed-controlled repeat, or move to the rank sweep (math/02) now that
+  there's a real metric to plot against r.
