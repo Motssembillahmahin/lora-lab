@@ -29,6 +29,10 @@ infer: ## Chat with the fine-tuned adapter (override with ADAPTER=path)
 merge: ## Merge the LoRA adapter into the base model
 	uv run python -m src.merge $(ADAPTER)
 
+.PHONY: eval
+eval: ## Response-only eval NLL/perplexity (ADAPTER=base for the un-adapted model)
+	uv run python -m src.eval $(CONFIG) $(ADAPTER)
+
 .PHONY: lint
 lint: ## Lint with ruff
 	uv run ruff check src

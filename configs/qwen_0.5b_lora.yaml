@@ -9,6 +9,10 @@ num_threads: 12
 dataloader_workers: 2
 mask_prompt: true    # loss on response tokens only. false = Run 001 behavior. See ADR 0003.
 
+# Held-out eval slice (disjoint from train[:n_train_examples]). See ADR 0004.
+eval_start: 300        # first eval example index; must be >= n_train_examples
+n_eval_examples: 100
+
 lora:
   r: 8
   alpha: 16          # heuristic: alpha = 2r. See docs/math/02-rank-and-alpha.md
