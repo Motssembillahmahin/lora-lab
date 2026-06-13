@@ -93,3 +93,34 @@ Template:
   with fixed seeds across N runs, or a same-297-examples unmasked control.
 - next: seed-controlled repeat, or move to the rank sweep (math/02) now that
   there's a real metric to plot against r.
+
+## Run 003 — paired seed study: masking IS real (ADR 0005)
+- harness: `make study SEEDS=0,1,2 N=150`, `src/study.py`. For each seed, trained
+  a masked and an unmasked adapter with the *same* seed on the *same* 147 examples
+  (all-prompt filter now fires for both arms), then evaluated both on the held-out
+  slice. Paired design → per-seed delta isolates masking.
+- wall time: ~1 h for all 6 train+eval pairs (n_train=150, ~19 steps/run).
+- numbers (held-out response-NLL):
+
+  | seed | masked | unmasked | Δ (unmasked − masked) |
+  |-----:|-------:|---------:|----------------------:|
+  | 0    | 2.0201 | 2.0387   | +0.0187 |
+  | 1    | 2.0202 | 2.0390   | +0.0188 |
+  | 2    | 2.0198 | 2.0398   | +0.0200 |
+  | **mean** | **2.0200 ± 0.0002** | **2.0392 ± 0.0005** | **+0.0191 ± 0.0006** |
+
+  Masked ppl 7.54 vs unmasked 7.68 (~1.8% lower).
+- read: **masking's benefit is real, not seed noise.** The effect (+0.0191) is
+  ~30× the std of the paired delta (±0.0006), and the sign is consistent across
+  all 3 seeds. Removing the 297-vs-300 confound (same 147 examples both arms) the
+  gap held — actually slightly larger than Run 002's single-seed 0.013. Seed
+  variance is tiny here (±0.0002), i.e. fp32 CPU LoRA on fixed data is very stable.
+- honest caveats: (1) N=3 → this is effect-direction + spread, not a formal
+  p-value; the case rests on consistent sign + signal ≫ spread, which is strong
+  but not a significance test. (2) Absolute NLLs are at n_train=150 and are NOT
+  comparable to Run 001/002 (n_train=300) — only masked-vs-unmasked *within* this
+  study is. (3) Effect is small in absolute terms (~1.8% ppl), as expected for an
+  already-instruct-tuned base + tiny data; the *mechanism* (math/03) predicts a
+  bigger gap when prompts dwarf responses.
+- verdict: the masking question is closed — keep `mask_prompt: true`.
+- next: rank sweep (math/02), now with `make study`/`make eval` as the metric.

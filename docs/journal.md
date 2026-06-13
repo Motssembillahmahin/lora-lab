@@ -101,3 +101,28 @@ Append-only narrative of the LoRA Lab. Newest entries at the bottom.
   (03 §2) said train loss wasn't comparable; eval NLL on a fixed denominator is.
 - Next: seed-controlled masking repeat, or the rank sweep (math/02) — now there's
   a real number to plot against r.
+
+---
+
+## Session 4 — seed study: masking's edge is real
+
+- Closed the masking question properly. Built a **paired** seed study
+  (`src/study.py`, `make study`): per seed, train masked + unmasked with the
+  *same* seed on the *same* 147 examples (made the all-prompt filter fire for
+  both arms, killing the 297-vs-300 confound), then eval both. Added `seed` to
+  the config + `set_seed` in a refactored `train(cfg)`. TDD'd `mean_std` and the
+  unconditional-filter invariant (15 tests green). ADR 0005.
+- Result across seeds 0,1,2 (held-out response-NLL): masked 2.0200 ± 0.0002 vs
+  unmasked 2.0392 ± 0.0005. Paired delta **+0.0191 ± 0.0006, same sign every
+  seed**. Masked ppl 7.54 vs 7.68 (~1.8%).
+- **Masking genuinely helps** — the signal is ~30× the delta's spread and
+  consistent across seeds, so it's not noise, and the confound is gone. The arc
+  is the lesson: Session 2 eyeballed generations and saw "no difference";
+  Session 3's token-weighted eval saw a hint (0.013); Session 4's paired study
+  confirmed it (0.0191, tight). Better metric → clearer truth, each step.
+- Stayed honest about limits: N=3 isn't a p-value; the case is "consistent sign +
+  signal ≫ spread." Effect is small in absolute terms (instruct base + tiny
+  data), and the math predicts a bigger gap when prompts dwarf responses.
+- Surprise worth noting: seed variance is tiny (±0.0002) — fp32 CPU LoRA on fixed
+  data is remarkably stable, which is why N=3 was already decisive.
+- Next: rank sweep (math/02), with make study/make eval as the metric.
