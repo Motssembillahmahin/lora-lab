@@ -16,27 +16,34 @@ from src.train import load_config, train
 PLOT_PATH = "docs/math/assets/02-rank-sweep.png"
 
 
-def make_sweep_configs(base_cfg, r_values, seed, n_train, out_root="outputs/sweep"):
+def make_sweep_configs(base_cfg, r_values, seed, n_train, use_rslora=False, out_root="outputs/sweep"):
     """One cfg per rank, with alpha=2r and a distinct output dir. Pure; deep-copies
-    base_cfg so the caller's nested lora dict is never mutated."""
+    base_cfg so the caller's nested lora dict is never mutated.
+
+    use_rslora=True switches the scaling from alpha/r to alpha/sqrt(r) (the control
+    that disentangles a real plateau from the 1/sqrt(r) under-scaling — ADR 0006 §3).
+    """
+    tag = "rslora" if use_rslora else "vanilla"
     cfgs = []
     for r in r_values:
         cfg = copy.deepcopy(base_cfg)
         cfg["lora"]["r"] = r
         cfg["lora"]["alpha"] = 2 * r
+        cfg["use_rslora"] = use_rslora
         cfg["mask_prompt"] = True
         cfg["seed"] = seed
         cfg["n_train_examples"] = n_train
-        cfg["output_dir"] = f"{out_root}/r{r}"
+        cfg["output_dir"] = f"{out_root}/{tag}-r{r}"
         cfgs.append(cfg)
     return cfgs
 
 
-def run_sweep(base_cfg, r_values, seed, n_train):
+def run_sweep(base_cfg, r_values, seed, n_train, use_rslora=False):
     rows = []
-    for cfg in make_sweep_configs(base_cfg, r_values, seed, n_train):
+    for cfg in make_sweep_configs(base_cfg, r_values, seed, n_train, use_rslora=use_rslora):
         r, alpha = cfg["lora"]["r"], cfg["lora"]["alpha"]
-        print(f"\n===== training r={r} (alpha={alpha}) =====")
+        scale = "α/√r" if use_rslora else "α/r"
+        print(f"\n===== training r={r} (alpha={alpha}, scaling={scale}) =====")
         adapter = train(cfg)
         res = evaluate(cfg, adapter)
         res.update({"r": r, "alpha": alpha})
@@ -84,11 +91,12 @@ def summarize(rows):
     print("====================================================")
 
 
-def main(config_path, r_values, seed, n_train):
+def main(config_path, r_values, seed, n_train, use_rslora=False):
     base = load_config(config_path)
-    rows = run_sweep(base, r_values, seed, n_train)
+    rows = run_sweep(base, r_values, seed, n_train, use_rslora=use_rslora)
     summarize(rows)
-    plot_results(rows)
+    path = PLOT_PATH.replace(".png", "-rslora.png") if use_rslora else PLOT_PATH
+    plot_results(rows, path)
 
 
 if __name__ == "__main__":
@@ -96,4 +104,5 @@ if __name__ == "__main__":
     ranks = [int(r) for r in sys.argv[2].split(",")] if len(sys.argv) > 2 else [2, 4, 8, 16, 32]
     seed = int(sys.argv[3]) if len(sys.argv) > 3 else 0
     n = int(sys.argv[4]) if len(sys.argv) > 4 else 150
-    main(config, ranks, seed, n)
+    rslora = str(sys.argv[5]).lower() in ("1", "true", "yes") if len(sys.argv) > 5 else False
+    main(config, ranks, seed, n, use_rslora=rslora)

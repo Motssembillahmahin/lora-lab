@@ -56,6 +56,9 @@ def train(cfg: dict) -> str:
             lora_alpha=lc["alpha"],
             lora_dropout=lc["dropout"],
             target_modules=lc["target_modules"],
+            # rsLoRA scales the adapter by alpha/sqrt(r) instead of alpha/r — the
+            # variance-correct normalization (docs/math/02 §3, ADR 0006).
+            use_rslora=cfg.get("use_rslora", False),
             bias="none",
             task_type="CAUSAL_LM",
         ),

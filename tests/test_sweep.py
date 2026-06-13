@@ -47,3 +47,16 @@ def test_base_config_not_mutated():
     make_sweep_configs(BASE, [2, 32], seed=0, n_train=150)
     assert BASE["lora"]["r"] == 8
     assert BASE["lora"]["alpha"] == 16
+
+
+def test_use_rslora_defaults_false():
+    cfgs = make_sweep_configs(BASE, [8], seed=0, n_train=150)
+    assert cfgs[0]["use_rslora"] is False
+
+
+def test_use_rslora_propagates_to_every_config():
+    # The control sweep flips scaling to alpha/sqrt(r) for every rank (ADR 0006 §3).
+    cfgs = make_sweep_configs(BASE, [2, 8, 32], seed=0, n_train=150, use_rslora=True)
+    assert all(c["use_rslora"] is True for c in cfgs)
+    # alpha=2r invariant must still hold — only the scaling rule changes.
+    assert all(c["lora"]["alpha"] == 2 * c["lora"]["r"] for c in cfgs)

@@ -38,8 +38,8 @@ study: ## Paired seed study: masked vs unmasked across seeds (SEEDS=0,1,2 N=150)
 	uv run python -m src.study $(CONFIG) $(SEEDS) $(N)
 
 .PHONY: sweep
-sweep: ## Rank sweep: train/eval at each r (alpha=2r), plot ppl vs r (RANKS=2,4,8,16,32 SEED=0 N=150)
-	uv run python -m src.sweep $(CONFIG) $(RANKS) $(SEED) $(N)
+sweep: ## Rank sweep: train/eval at each r (alpha=2r), plot ppl vs r (RANKS=2,4,8,16,32 SEED=0 N=150 RSLORA=0)
+	uv run python -m src.sweep $(CONFIG) $(RANKS) $(SEED) $(N) $(RSLORA)
 
 .PHONY: lint
 lint: ## Lint with ruff
