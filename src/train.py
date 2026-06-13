@@ -56,6 +56,11 @@ def train(cfg: dict) -> str:
             lora_alpha=lc["alpha"],
             lora_dropout=lc["dropout"],
             target_modules=lc["target_modules"],
+            # Per-module rank/alpha overrides (keys regex-matched on module names).
+            # Used by the allocation experiment to give wide q/o more rank than
+            # narrow k/v at a fixed budget (docs/math/01 OQ4, ADR 0007).
+            rank_pattern=lc.get("rank_pattern", {}),
+            alpha_pattern=lc.get("alpha_pattern", {}),
             # rsLoRA scales the adapter by alpha/sqrt(r) instead of alpha/r — the
             # variance-correct normalization (docs/math/02 §3, ADR 0006).
             use_rslora=cfg.get("use_rslora", False),

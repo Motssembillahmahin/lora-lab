@@ -41,6 +41,10 @@ study: ## Paired seed study: masked vs unmasked across seeds (SEEDS=0,1,2 N=150)
 sweep: ## Rank sweep: train/eval at each r (alpha=2r), plot ppl vs r (RANKS=2,4,8,16,32 SEED=0 N=150 RSLORA=0)
 	uv run python -m src.sweep $(CONFIG) $(RANKS) $(SEED) $(N) $(RSLORA)
 
+.PHONY: alloc
+alloc: ## Per-module rank allocation at fixed budget: uniform vs wide/narrow-heavy (SEED=0 N=150)
+	uv run python -m src.allocation $(CONFIG) $(SEED) $(N)
+
 .PHONY: lint
 lint: ## Lint with ruff
 	uv run ruff check src
