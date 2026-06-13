@@ -1,0 +1,32 @@
+# Virtual env / uv
+.venv/
+uv.lock.bak
+
+# Data and model outputs (large binaries — never commit)
+data/
+outputs/
+*.safetensors
+*.bin
+*.pt
+*.gguf
+
+# HuggingFace cache
+.cache/
+*/.cache/
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.ruff_cache/
+.pytest_cache/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

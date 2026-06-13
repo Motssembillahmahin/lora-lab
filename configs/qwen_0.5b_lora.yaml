@@ -1,0 +1,24 @@
+# Default LoRA config — Qwen2.5-0.5B-Instruct, CPU-friendly.
+# Change values HERE, not in code. Each config change should be its own commit.
+
+model_id: Qwen/Qwen2.5-0.5B-Instruct
+dataset: databricks/databricks-dolly-15k
+max_len: 512
+n_train_examples: 300
+num_threads: 12
+dataloader_workers: 2
+
+lora:
+  r: 8
+  alpha: 16          # heuristic: alpha = 2r. See docs/math/02-rank-and-alpha.md
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj]   # attention only (for now)
+
+training:
+  batch_size: 1      # CPU + 14GB RAM -> keep at 1
+  grad_accum: 8      # effective batch size = batch_size * grad_accum = 8
+  epochs: 1
+  lr: 2.0e-4
+  logging_steps: 5
+
+output_dir: ./outputs/qwen-lora-adapter

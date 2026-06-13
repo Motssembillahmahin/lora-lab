@@ -1,0 +1,42 @@
+[project]
+name = "lora-lab"
+version = "0.1.0"
+description = "A math-first, CPU-only learning lab for LoRA / QLoRA fine-tuning"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    # CPU torch is installed via the [tool.uv.sources] index below.
+    "torch>=2.2",
+    "transformers>=4.44",
+    "peft>=0.12",
+    "datasets>=2.20",
+    "accelerate>=0.33",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.6",
+    "pytest>=8.0",
+]
+
+# Pull torch from the CPU-only wheel index so we never drag in CUDA on this
+# machine. uv understands per-package index pinning.
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
