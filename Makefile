@@ -37,6 +37,10 @@ eval: ## Response-only eval NLL/perplexity (ADAPTER=base for the un-adapted mode
 study: ## Paired seed study: masked vs unmasked across seeds (SEEDS=0,1,2 N=150)
 	uv run python -m src.study $(CONFIG) $(SEEDS) $(N)
 
+.PHONY: sweep
+sweep: ## Rank sweep: train/eval at each r (alpha=2r), plot ppl vs r (RANKS=2,4,8,16,32 SEED=0 N=150)
+	uv run python -m src.sweep $(CONFIG) $(RANKS) $(SEED) $(N)
+
 .PHONY: lint
 lint: ## Lint with ruff
 	uv run ruff check src

@@ -18,6 +18,7 @@ dependencies = [
 dev = [
     "ruff>=0.6",
     "pytest>=8.0",
+    "matplotlib>=3.10.9",
 ]
 
 # Pull torch from the CPU-only wheel index so we never drag in CUDA on this
