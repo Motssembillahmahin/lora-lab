@@ -124,3 +124,36 @@ Template:
   bigger gap when prompts dwarf responses.
 - verdict: the masking question is closed — keep `mask_prompt: true`.
 - next: rank sweep (math/02), now with `make study`/`make eval` as the metric.
+
+## Run 004 — rank sweep r∈{2,4,8,16,32}, α=2r (ADR 0006)
+- harness: `make sweep RANKS=2,4,8,16,32 SEED=0 N=150`, `src/sweep.py`. Masked,
+  single seed, α=2r (α/r=2 held fixed → isolates capacity, math/02 §3). Each r
+  trained + evaluated on the held-out slice. Plot: `docs/math/assets/02-rank-sweep.png`.
+- wall time: ~1 h for 5 train+eval runs.
+- numbers (held-out response perplexity):
+
+  | r  | α  | response-NLL | perplexity | Δppl vs r/2 |
+  |---:|---:|-------------:|-----------:|------------:|
+  | 2  | 4  | 2.0413       | 7.70       | —           |
+  | 4  | 8  | 2.0279       | 7.60       | −0.10       |
+  | 8  | 16 | 2.0201       | 7.54       | −0.06       |
+  | 16 | 32 | 2.0164       | 7.51       | −0.03       |
+  | 32 | 64 | 2.0164       | 7.51       |  0.00       |
+
+- read: **monotonic decrease that plateaus by r=16** (r=16 and r=32 identical to
+  4 decimals). This is reading (a) from math/02 §2 — **low intrinsic rank**. Most
+  of the gain is captured by r=8; r=16 adds a sliver (ΔNLL 0.0037, ~0.4% ppl);
+  r=32 adds nothing. No U-shape, so no overfitting at high rank on this slice.
+  Answers 01 open-question 1: r=8 is a sound default with headroom; the task's
+  update genuinely lives in a thin subspace, as the LoRA hypothesis predicts.
+- honest caveats: (1) single seed (justified — Run 003 variance ±0.0002; the
+  0.0037 r=8→16 gain is ~18× that, so real, but small); (2) n_train=150, tiny
+  data — absolute ppl not comparable to Run 001/002, only within-sweep across r;
+  (3) **α/r vs α/√r confound (math/02 §3)**: the plateau under α=2r could be
+  partly the rsLoRA 1/√r under-scaling rather than purely low intrinsic rank — a
+  `use_rslora=True` sweep is the control to disentangle; (4) global r under GQA
+  (01 OQ4) — per-module rank_pattern is the next probe.
+- verdict: keep r=8 as default; r=16 if squeezing the last ~0.4% ppl is worth 2×
+  the adapter/optimizer cost. Diminishing returns are clear.
+- next: rsLoRA control sweep (disentangle the §3 confound), or per-module
+  rank_pattern (01 OQ4), or move to a non-instruct base for a stronger signal.

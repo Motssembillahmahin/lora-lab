@@ -126,3 +126,36 @@ Append-only narrative of the LoRA Lab. Newest entries at the bottom.
 - Surprise worth noting: seed variance is tiny (±0.0002) — fp32 CPU LoRA on fixed
   data is remarkably stable, which is why N=3 was already decisive.
 - Next: rank sweep (math/02), with make study/make eval as the metric.
+
+---
+
+## Session 5 — rank sweep: low intrinsic rank confirmed
+
+- Wrote `docs/math/02-rank-and-alpha.md` (math-tutor) as a **pre-registration**:
+  rank = capacity (Eckart–Young), the plateau hypothesis + three curve readings,
+  why sweep with α=2r (holding α/r=2 isolates capacity from effective-LR), and
+  the linear compute cost of r. Deliberately kept results OUT of that doc.
+- Built `src/sweep.py` / `make sweep` (TDD'd `make_sweep_configs`: α=2r invariant,
+  distinct dirs, base not mutated — 20 tests green) + a committed matplotlib
+  figure. ADR 0006. Added matplotlib (dev).
+- Ran r∈{2,4,8,16,32}, α=2r, single seed, n=150 (~1h). Held-out response ppl:
+
+  ![rank sweep: perplexity vs r](math/assets/02-rank-sweep.png)
+
+  | r | 2 | 4 | 8 | 16 | 32 |
+  |---|---|---|---|----|----|
+  | ppl | 7.70 | 7.60 | 7.54 | 7.51 | 7.51 |
+
+- **The prediction held: low intrinsic rank.** Monotonic drop that plateaus by
+  r=16 (r=16 == r=32 to 4 dp). Most gain by r=8; r=16 a sliver more; r=32 nothing.
+  No U-shape → no high-rank overfitting on this slice. So 01's open-question 1 is
+  answered: r=8 is a sound default with headroom — the task's update really does
+  live in a thin subspace, exactly the LoRA bet.
+- Honest about it: the gains are small in absolute terms (7.70→7.51, ~2.5% total)
+  — instruct base + tiny data again — and the α/r-vs-α/√r confound means the
+  plateau could be partly a scaling artifact (rsLoRA sweep is the control). But
+  the *shape* is the classic intrinsic-rank curve.
+- Kept the pre-registration clean: results live here + in experiments/log.md
+  (Run 004); math/02 only gained a one-line pointer. Registered-report style.
+- Next: rsLoRA control sweep, per-module rank_pattern (01 OQ4), or a non-instruct
+  base for stronger signal.

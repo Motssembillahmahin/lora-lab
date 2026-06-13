@@ -427,3 +427,10 @@ Honest caveats to attach to whatever curve we get:
 Result goes in `experiments/log.md` (one entry per $r$, tied to a commit SHA) and
 the read-off updates the journal — **not this file**. This doc stays the
 pre-registration: the prediction and the reading rule, written before the data.
+
+> → **Result (cross-ref, not folded into the prediction above):** the sweep ran —
+> see `experiments/log.md` Run 004, journal Session 5, and the figure
+> [`assets/02-rank-sweep.png`](./assets/02-rank-sweep.png). Short version:
+> **reading (a)** — perplexity fell monotonically ($7.70\to7.51$) and **plateaued
+> by $r=16$** ($r{=}16$ and $r{=}32$ identical to 4 dp), confirming low intrinsic
+> rank; $r=8$ has headroom. The §3 $\alpha/\sqrt r$ control remains to be run.
