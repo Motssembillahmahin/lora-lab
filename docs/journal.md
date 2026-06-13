@@ -159,3 +159,35 @@ Append-only narrative of the LoRA Lab. Newest entries at the bottom.
   (Run 004); math/02 only gained a one-line pointer. Registered-report style.
 - Next: rsLoRA control sweep, per-module rank_pattern (01 OQ4), or a non-instruct
   base for stronger signal.
+
+---
+
+## Session 6 — rsLoRA control: the plateau was an artifact
+
+- Ran the pre-registered control (math/02 §3): same sweep, α/√r scaling
+  (`use_rslora=True`). Added the plumbing test-first (use_rslora propagation;
+  22 tests green), verified PEFT honors it, then ran r∈{2,4,8,16,32}.
+
+  ![vanilla vs rsLoRA](math/assets/02-rank-sweep-comparison.png)
+
+  | r | 2 | 4 | 8 | 16 | 32 |
+  |---|---|---|---|----|----|
+  | vanilla α/r | 7.70 | 7.60 | 7.54 | 7.51 | 7.51 |
+  | rsLoRA α/√r | 7.65 | 7.54 | **7.51** | 7.58 | 7.95 |
+
+- **The result flipped the nuance, and that's the payoff of running the control.**
+  Run 004's flat plateau was partly a *scaling artifact*: vanilla α/r under-scales
+  high-r adapters by ~1/√r, hiding overfitting. Under variance-correct α/√r the
+  true curve is a **U-shape** — bottoms at r=8, then rises hard (r=32 → 7.95).
+  More rank actively hurts on ~150 examples (overfitting), exactly reading (c)
+  that §2 said was plausible for this data regime.
+- r=8 is the optimum under *both* scalings, so the practical default is unchanged
+  and now better-justified. But I had to walk back "r=8 has headroom" — the
+  headroom was an illusion of under-scaling.
+- Lesson (the recurring one): the control experiment earned its keep. Without it
+  I'd have logged "low intrinsic rank, headroom to spare"; the truth is "r=8 is
+  the knee, and the apparent headroom was a scaling artifact masking overfit."
+- Honest limits: single seed (but the r=32 jump is ~300× seed noise, unambiguous);
+  the U is a small-data phenomenon — more data would likely flatten the high-r rise.
+- Next: per-module rank_pattern (01 OQ4), or a non-instruct base / more data to get
+  effects bigger than the ~0.1–0.4 ppl range everything's been living in.

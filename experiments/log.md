@@ -157,3 +157,41 @@ Template:
   the adapter/optimizer cost. Diminishing returns are clear.
 - next: rsLoRA control sweep (disentangle the §3 confound), or per-module
   rank_pattern (01 OQ4), or move to a non-instruct base for a stronger signal.
+
+## Run 005 — rsLoRA control sweep (α/√r): the plateau WAS an artifact
+- harness: `make sweep RANKS=2,4,8,16,32 SEED=0 N=150 RSLORA=1`. Identical to
+  Run 004 except scaling = α/√r (`use_rslora=True`), the control pre-registered in
+  math/02 §3 / ADR 0006. Plot: `docs/math/assets/02-rank-sweep-rslora.png`;
+  overlay vs Run 004: `docs/math/assets/02-rank-sweep-comparison.png`.
+- numbers (held-out response perplexity), vs Run 004:
+
+  | r  | vanilla α/r (Run 004) | rsLoRA α/√r (Run 005) |
+  |---:|----------------------:|----------------------:|
+  | 2  | 7.70                  | 7.65 |
+  | 4  | 7.60                  | 7.54 |
+  | 8  | 7.54                  | **7.51** |
+  | 16 | 7.51                  | 7.58 |
+  | 32 | 7.51                  | 7.95 |
+
+- read: **the §3 confound was real — Run 004's plateau was partly a scaling
+  artifact.** Under variance-correct α/√r the curve is a **U-shape** (reading (c)):
+  it bottoms at r=8 (7.51) then *rises* sharply (r=32 → 7.95). Mechanism: α/√r >
+  α/r for r>1 and increasingly so with r, so high-r rsLoRA adapters get larger
+  effective updates; combined with more capacity on ~150 examples they **overfit**
+  (held-out ppl worsens). Vanilla α/r under-scaled those same high-r adapters by
+  ~1/√r, which *flattened* the rise into a benign-looking plateau. rsLoRA is also
+  slightly better at low r (r≤8) where the bigger effective update helps without
+  overfitting. Crossover ≈ r=8.
+- synthesis: **r=8 is the optimum under both scalings** — robustly the right
+  practical choice (best single number anywhere: rsLoRA r=8 = 7.51). But the
+  earlier "r=8 has comfortable headroom" (Run 004 reading (a)) was too rosy: the
+  headroom was the under-scaling hiding overfitting. Correct picture on this data:
+  r=8 is the knee, and going higher is plateau-at-best (α/r) or harmful (α/√r).
+- honest caveats: single seed (but the r=32 jump 7.51→7.95 is ~300× seed std, so
+  unambiguous); tiny data is *why* the U appears — on a larger corpus the high-r
+  rise would likely flatten (overfitting is the data regime, not a LoRA flaw);
+  α/√r vs α/r is now disentangled, confound closed.
+- verdict: keep r=8 + vanilla α/r as the default. (rsLoRA r=8 edges it by 0.03 ppl
+  but buys nothing above r=8 and hurts there.) The §3 question is answered.
+- next: per-module rank_pattern (01 OQ4), or a non-instruct base / more data so the
+  effects aren't all in the ~0.1–0.4 ppl range.

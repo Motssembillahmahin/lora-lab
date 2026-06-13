@@ -429,8 +429,14 @@ the read-off updates the journal — **not this file**. This doc stays the
 pre-registration: the prediction and the reading rule, written before the data.
 
 > → **Result (cross-ref, not folded into the prediction above):** the sweep ran —
-> see `experiments/log.md` Run 004, journal Session 5, and the figure
-> [`assets/02-rank-sweep.png`](./assets/02-rank-sweep.png). Short version:
-> **reading (a)** — perplexity fell monotonically ($7.70\to7.51$) and **plateaued
-> by $r=16$** ($r{=}16$ and $r{=}32$ identical to 4 dp), confirming low intrinsic
-> rank; $r=8$ has headroom. The §3 $\alpha/\sqrt r$ control remains to be run.
+> see `experiments/log.md` Run 004/005, journal Session 5–6, and the figures
+> [`assets/02-rank-sweep.png`](./assets/02-rank-sweep.png) and the vanilla-vs-rsLoRA
+> overlay [`assets/02-rank-sweep-comparison.png`](./assets/02-rank-sweep-comparison.png).
+> Short version: vanilla $\alpha/r$ (Run 004) gave **reading (a)** — a monotonic
+> drop ($7.70\to7.51$) plateauing by $r=16$. But the §3 control (Run 005, rsLoRA
+> $\alpha/\sqrt r$) showed that plateau was **partly a scaling artifact**: under
+> variance-correct scaling the curve is a **U-shape** (reading (c)) — bottoms at
+> $r=8$ (7.51), then rises ($r{=}32\to7.95$) as high-rank adapters overfit the
+> tiny dataset. Net: $r=8$ is the optimum under both scalings, but the apparent
+> "headroom" past it was the $1/\sqrt r$ under-scaling hiding overfit. §3 confound:
+> closed.
