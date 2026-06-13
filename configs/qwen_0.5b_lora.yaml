@@ -7,6 +7,7 @@ max_len: 512
 n_train_examples: 300
 num_threads: 12
 dataloader_workers: 2
+mask_prompt: true    # loss on response tokens only. false = Run 001 behavior. See ADR 0003.
 
 lora:
   r: 8

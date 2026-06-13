@@ -15,10 +15,12 @@ from peft import LoraConfig, get_peft_model
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
-    DataCollatorForLanguageModeling,
+    DataCollatorForSeq2Seq,
     Trainer,
     TrainingArguments,
 )
+
+from src.data import build_example
 
 
 def load_config(path: str) -> dict:
@@ -57,32 +59,37 @@ def main(config_path: str) -> None:
     # This line proves the whole point of LoRA — only a sliver is trainable.
     model.print_trainable_parameters()
 
-    # --- 4. Dataset -> chat-formatted text -> tokens ---
+    # --- 4. Dataset -> masked training examples ---
+    # Loss is computed on the assistant's response only when mask_prompt is set:
+    # prompt tokens get label -100. See docs/math/03-loss-masking.md + ADR 0003.
     ds = load_dataset(cfg["dataset"], split=f"train[:{cfg['n_train_examples']}]")
+    mask_prompt = cfg.get("mask_prompt", True)
 
-    def to_chat(ex: dict) -> dict:
-        user = ex["instruction"]
-        if ex.get("context"):
-            user = f"{ex['instruction']}\n\n{ex['context']}"
-        messages = [
-            {"role": "user", "content": user},
-            {"role": "assistant", "content": ex["response"]},
-        ]
-        return {"text": tok.apply_chat_template(messages, tokenize=False)}
+    def encode(ex: dict) -> dict:
+        out = build_example(
+            tok,
+            ex["instruction"],
+            ex.get("context"),
+            ex["response"],
+            max_len=cfg["max_len"],
+            mask_prompt=mask_prompt,
+        )
+        # build_example returns None when the prompt alone fills max_len (no
+        # response survives -> 0/0 NaN loss). Mark with empty ids, drop below.
+        return out or {"input_ids": [], "attention_mask": [], "labels": []}
 
-    ds = ds.map(to_chat, remove_columns=ds.column_names)
-
-    # NOTE (learning TODO): we currently train on the *whole* sequence, including
-    # the user prompt tokens. Proper instruction tuning masks the prompt so loss
-    # is only computed on the assistant's response. This is the first improvement
-    # to make — see docs/math/03-loss-masking.md (to be written) and have the
-    # math-tutor agent explain why before implementing it.
-    ds = ds.map(
-        lambda e: tok(e["text"], truncation=True, max_length=cfg["max_len"]),
-        remove_columns=["text"],
+    n_before = len(ds)
+    ds = ds.map(encode, remove_columns=ds.column_names)
+    ds = ds.filter(lambda e: len(e["input_ids"]) > 0)
+    n_dropped = n_before - len(ds)
+    print(
+        f"mask_prompt={mask_prompt}; kept {len(ds)}/{n_before} examples "
+        f"({n_dropped} dropped: prompt >= max_len={cfg['max_len']})"
     )
 
-    collator = DataCollatorForLanguageModeling(tokenizer=tok, mlm=False)
+    # Pads input_ids and labels (labels with -100), consuming the labels we built
+    # rather than fabricating them from input_ids.
+    collator = DataCollatorForSeq2Seq(tokenizer=tok, padding=True)
 
     # --- 5. Training args (CPU-friendly) ---
     tr = cfg["training"]
