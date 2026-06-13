@@ -41,3 +41,31 @@ Template:
 - next: (a) fix loss masking before trusting loss numbers; (b) rank sweep
   r∈{2,4,8,16,32} for docs/math/02 open-question 1; (c) try per-module
   rank_pattern (open-question 4) since r=8 is loose on the narrow k/v.
+
+## Run 002 — prompt loss masking on (Approach A)
+- commit: _this commit_ (branch `feat/loss-masking`)
+- hypothesis: masking prompt tokens (loss on response only) improves
+  instruction-following vs the unmasked Run 001. Judge by generation, not loss
+  (masked/unmasked loss aren't comparable — different denominators, math/03 §2).
+- config: only `mask_prompt: true` changed (was effectively false in Run 001).
+  Everything else identical: r=8, α=16, [q,k,v,o], 300 Dolly, max_len=512,
+  batch=1×8, 1 epoch, lr=2e-4. One-variable experiment.
+- final loss: train_loss 2.06. **NOT comparable to Run 001's 2.076** — averaged
+  over response tokens only. Recorded for completeness, not for comparison.
+- wall time: 18m15s (train_runtime 1081s; no model download this time).
+- peak RAM: 3.84 GB.
+- trainable params: 1,081,344 (unchanged — LoRA config didn't move). The masking
+  filter dropped **3/300** examples whose prompt alone ≥ max_len=512 (the NaN
+  guard, math/03 §5); trained on 297.
+- observation: **inconclusive — no decisive generation difference.** On the 3
+  infer prompts: masked obeyed "in two sentences" (2 vs 1); unmasked's haiku was
+  marginally better-formed; process-vs-thread answer was identical. Most likely
+  confound: the base is Qwen2.5-0.5B-*Instruct* (already instruction-tuned), and
+  300 ex / 1 epoch of r=8 LoRA barely moves it, washing out the masking effect.
+  The fix is correct (right objective) but this setup can't isolate its benefit.
+- next: to actually measure masking's effect — (a) hold out a small eval set and
+  compute *response-only* eval loss for both adapters (apples-to-apples, since
+  eval masking is identical), rather than eyeballing 3 generations; (b) increase
+  signal: more examples / more epochs, or a task the instruct base is weak at;
+  (c) the |R|-weighted argument (math/03 §3) predicts a bigger effect when
+  prompts dwarf responses — worth constructing such a slice deliberately.

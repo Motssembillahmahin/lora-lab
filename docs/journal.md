@@ -46,3 +46,35 @@ Append-only narrative of the LoRA Lab. Newest entries at the bottom.
   - **Loss masking gap** (src/train.py:75): we train on prompt+response, so the
     loss isn't a clean instruction signal. That's the next fix (docs/math/03).
 - Next thread options: fix loss masking, or run the rank sweep for math/02.
+
+---
+
+## Session 2 — loss masking (spec → TDD → A/B)
+
+- Pulled the loss-masking thread properly: brainstormed approaches, chose
+  **Approach A** (manual prefix masking, no new deps), wrote the spec
+  (`docs/math/03-loss-masking.md` + ADR 0003) and got it reviewed *before*
+  touching code.
+- Key math from 03: causal-LM loss with HF's internal label shift; `-100`
+  changes the loss *denominator* (so masked/unmasked loss are NOT comparable);
+  full-seq loss is a convex combo `|P|/(|P|+|R|)·L_P + |R|/(|P|+|R|)·L_R`, so
+  training on the prompt spends a `|P|/(|P|+|R|)` slice of every gradient learning
+  to generate the instruction (~80% for a 400/100 split).
+- Built it **test-first**. The failing test caught a real surprise: transformers
+  5.12 `apply_chat_template(tokenize=True)` returns a `BatchEncoding`, not a token
+  list — needs `return_dict=True` + `["input_ids"]`. 7 tests pin the invariants
+  (prompt masked, response unmasked, input_ids untouched, prompt-ids an exact
+  prefix of full-ids, all-prompt example filtered). `src/data.py` holds the pure
+  `build_example`; `train.py` swapped to `DataCollatorForSeq2Seq`.
+- Run 002 (masked): dropped 3/300 examples (prompt ≥ max_len — the NaN guard),
+  18m15s, 3.84 GB, train_loss 2.06 (not comparable to Run 001 — different
+  denominator).
+- **Honest result: inconclusive.** Compared *generations* (not loss) for masked
+  vs unmasked: very similar. Masked obeyed "two sentences"; unmasked's haiku was
+  a touch better. The confound: the base is already *Instruct*-tuned, so 300 ex /
+  1 epoch of LoRA barely shifts behavior and the masking effect washes out. The
+  fix is the right objective; this experiment just can't isolate its benefit.
+- Lesson: eyeballing 3 greedy generations is a weak metric. Next time measure
+  response-only eval loss on a held-out set (apples-to-apples), and/or pick a
+  setup where the base is actually weak so there's signal to move.
+- Next: a held-out eval harness, or the rank sweep (math/02).
