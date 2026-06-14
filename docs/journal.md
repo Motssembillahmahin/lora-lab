@@ -223,3 +223,29 @@ Append-only narrative of the LoRA Lab. Newest entries at the bottom.
 - The recurring ceiling is now unmistakable: every result from Run 002 on lives in
   a ~0.02–0.4 ppl band because the base is already instruct-tuned and the data is
   tiny. Next real move is a weaker base / more data so experiments can be decisive.
+
+---
+
+## Session 8 — pivot to the non-instruct base
+
+- Switched to `Qwen/Qwen2.5-0.5B` (base LM). First checked the decision-critical
+  unknown: the base tokenizer **ships the same ChatML chat_template**, so
+  build_example/eval run unchanged — no prompt-format rework. Made the tooling
+  base-agnostic (eval.py reads cfg model_id; infer/merge resolve the base from the
+  adapter's PeftConfig), kept the instruct config intact for reproducibility.
+  ADR 0008. 27 tests still green.
+- Run 007 baseline: floor (no adapter) ppl 10.27 → adapter 8.77 (ΔNLL 0.158,
+  −14.6%). vs instruct track 8.53 → 7.45 (Δ0.135, −12.7%).
+- **Honest read: the pivot worked in direction, modestly in magnitude.** The base
+  has a higher floor (genuinely worse at ChatML) and LoRA helps more — but
+  Qwen2.5-0.5B base isn't a blank slate; it clearly saw instruction-like data in
+  pretraining. I'd implied a dramatic gap; it's real but ~17% more gain, not 2–3×.
+  Walked that back in the log.
+- The actual value is headroom: the total fine-tuning effect (14.6% ppl) is ~8×
+  the masking effect we were splitting hairs over. So the *next* move — re-running
+  masking / rank on this base — should finally produce decisive differential
+  effects. That's the hypothesis to test, not yet shown.
+- Methodology note: the base→adapter gain is clean (same tokenizer + eval slice,
+  apples-to-apples). Resisted overclaiming downstream amplification before
+  measuring it.
+- Next: re-run masking A/B and the rank sweep on the base config.

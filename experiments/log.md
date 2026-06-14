@@ -230,3 +230,34 @@ Template:
 - next: a non-instruct base and/or 10× data — every effect across Runs 002–006
   lives in a ~0.02–0.4 ppl band because the instruct base + tiny data ceiling
   everything. A weaker base would make these experiments decisive.
+
+## Run 007 — new baseline on the NON-instruct base (ADR 0008)
+- config: `configs/qwen_0.5b_base_lora.yaml` (model_id `Qwen/Qwen2.5-0.5B`, the
+  base LM). Same recipe as before: masked, r=8, α=16, q/k/v/o, 300 Dolly, 1 epoch.
+  Base tokenizer ships ChatML, so the pipeline ran unchanged.
+- train: train_loss 2.286, 22m02s, 3.99 GB peak, adapter 4.2 MB, 1,081,344
+  trainable params, dropped 3/300 (prompt ≥ max_len).
+- eval (held-out train[300:400], 98 ex / 7861 response tokens, same-tokenizer so
+  base-vs-adapter is apples-to-apples):
+
+  | track            | floor (no adapter) | + adapter        | gain (ΔNLL / Δppl) |
+  |------------------|-------------------:|-----------------:|-------------------:|
+  | instruct (Run 002) | 2.1440 / 8.53    | 2.0088 / 7.45    | 0.135 / −12.7%     |
+  | **base (Run 007)** | **2.3291 / 10.27** | **2.1708 / 8.77** | **0.158 / −14.6%** |
+
+- read: pivot worked **in direction, modestly in magnitude.** The base has a
+  higher floor (10.27 vs 8.53 — genuinely worse at ChatML responses, as expected)
+  and LoRA improves it more (ΔNLL 0.158 vs 0.135). But it's not dramatically
+  worse than instruct — Qwen2.5-0.5B base clearly absorbed instruction-like data
+  in pretraining. So the base isn't a blank slate.
+- why it still matters: the *total* fine-tuning effect here (14.6% ppl) is ~8×
+  the masking effect and ~6× the rank-sweep range we were splitting hairs over on
+  the instruct base. That headroom is the point — re-running masking / rank /
+  allocation on THIS base should make those differential effects decisive instead
+  of ~0.02–0.4 ppl noise-adjacent. (Not yet measured — that's the next step.)
+- honest caveats: single seed; train_loss not comparable across tracks (different
+  base); the base→adapter gain is real and clean (same tokenizer/eval slice), but
+  whether *downstream* effects amplify is a hypothesis to test, not yet shown.
+- next: re-run the masking A/B (Run 003) and/or rank sweep (Run 004/005) on the
+  base config and see if the effects grow. Optionally bump data (n_train↑) since
+  the base benefits more from examples.
