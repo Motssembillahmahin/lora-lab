@@ -21,8 +21,6 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from src.data import build_example
 
-BASE = "Qwen/Qwen2.5-0.5B-Instruct"
-
 
 def weighted_mean(values, weights):
     """Corpus mean: sum(vᵢ·wᵢ) / sum(wᵢ).
@@ -44,11 +42,12 @@ def load_config(path: str) -> dict:
 def evaluate(cfg: dict, adapter_path: str | None) -> dict:
     torch.set_num_threads(cfg.get("num_threads", 12))
 
-    tok = AutoTokenizer.from_pretrained(adapter_path or BASE)
+    model_id = cfg["model_id"]
+    tok = AutoTokenizer.from_pretrained(adapter_path or model_id)
     if tok.pad_token is None:
         tok.pad_token = tok.eos_token
 
-    model = AutoModelForCausalLM.from_pretrained(BASE, dtype=torch.float32)
+    model = AutoModelForCausalLM.from_pretrained(model_id, dtype=torch.float32)
     if adapter_path:
         model = PeftModel.from_pretrained(model, adapter_path)
     model.eval()

@@ -6,10 +6,8 @@ Run via the Makefile:  `make infer`  (or `make infer ADAPTER=outputs/...`)
 import sys
 
 import torch
-from peft import PeftModel
+from peft import PeftConfig, PeftModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
-
-BASE = "Qwen/Qwen2.5-0.5B-Instruct"
 
 PROMPTS = [
     "Explain what a binary search is in two sentences.",
@@ -19,8 +17,11 @@ PROMPTS = [
 
 
 def main(adapter_path: str) -> None:
+    # The adapter records its own base model — load that, not a hardcoded id, so
+    # this works for both the instruct and base tracks.
+    base = PeftConfig.from_pretrained(adapter_path).base_model_name_or_path
     tok = AutoTokenizer.from_pretrained(adapter_path)
-    model = AutoModelForCausalLM.from_pretrained(BASE, torch_dtype=torch.float32)
+    model = AutoModelForCausalLM.from_pretrained(base, dtype=torch.float32)
     model = PeftModel.from_pretrained(model, adapter_path)  # attach LoRA adapter
     model.eval()
 

@@ -10,15 +10,15 @@ no PEFT dependency at load time.
 import sys
 
 import torch
-from peft import PeftModel
+from peft import PeftConfig, PeftModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
-
-BASE = "Qwen/Qwen2.5-0.5B-Instruct"
 
 
 def main(adapter_path: str, out_path: str = "outputs/qwen-merged") -> None:
+    # Resolve the base from the adapter itself (instruct or base track).
+    base = PeftConfig.from_pretrained(adapter_path).base_model_name_or_path
     tok = AutoTokenizer.from_pretrained(adapter_path)
-    model = AutoModelForCausalLM.from_pretrained(BASE, torch_dtype=torch.float32)
+    model = AutoModelForCausalLM.from_pretrained(base, dtype=torch.float32)
     model = PeftModel.from_pretrained(model, adapter_path)
 
     merged = model.merge_and_unload()  # folds B@A scaled by alpha/r into W

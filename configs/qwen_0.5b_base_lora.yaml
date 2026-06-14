@@ -1,0 +1,36 @@
+# LoRA config — Qwen2.5-0.5B *base* (NOT -Instruct), CPU-friendly.
+# Pivot from the instruct base (ADR 0008): the instruct base ceilinged every
+# effect to ~0.02–0.4 ppl because it was already tuned. The base model hasn't
+# seen instruction tuning, so fine-tuning should move it much more — bigger,
+# cleaner signal for the masking / rank / allocation questions.
+#
+# The base tokenizer ships the same ChatML chat_template, so the masking and
+# eval pipeline (apply_chat_template) works unchanged. Defaults match the
+# established good settings: masked loss, r=8, alpha=2r, attention-only.
+
+model_id: Qwen/Qwen2.5-0.5B
+dataset: databricks/databricks-dolly-15k
+max_len: 512
+n_train_examples: 300
+num_threads: 12
+dataloader_workers: 2
+mask_prompt: true
+
+# Held-out eval slice (disjoint from train[:n_train_examples]). See ADR 0004.
+eval_start: 300
+n_eval_examples: 100
+
+lora:
+  r: 8
+  alpha: 16          # alpha = 2r
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj]
+
+training:
+  batch_size: 1
+  grad_accum: 8
+  epochs: 1
+  lr: 2.0e-4
+  logging_steps: 5
+
+output_dir: ./outputs/qwen-base-lora-adapter
