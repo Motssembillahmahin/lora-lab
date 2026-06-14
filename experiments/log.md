@@ -261,3 +261,39 @@ Template:
 - next: re-run the masking A/B (Run 003) and/or rank sweep (Run 004/005) on the
   base config and see if the effects grow. Optionally bump data (n_train↑) since
   the base benefits more from examples.
+
+## Run 008 — masking A/B on the NON-instruct base: the win did NOT transfer
+- harness: `make study CONFIG=configs/qwen_0.5b_base_lora.yaml SEEDS=0,1,2 N=150`.
+  Identical to Run 003 (instruct) except the base model. Paired, masked vs unmasked
+  per seed, held-out response-NLL. Plot: `docs/math/assets/masking-effect-by-base.png`.
+- numbers:
+
+  | track | masked NLL | unmasked NLL | paired Δ (unmasked−masked) | sign |
+  |-------|-----------:|-------------:|---------------------------:|:----:|
+  | instruct (Run 003) | 2.0200 ± 0.0002 | 2.0392 ± 0.0005 | **+0.0191 ± 0.0006** | consistent |
+  | base (Run 008)     | 2.2260 ± 0.0035 | 2.2281 ± 0.0013 | **+0.0020 ± 0.0023** | **flips (−,+,+)** |
+
+- read: **prediction refuted.** I expected masking's benefit to *grow* on the base
+  (more headroom). Instead it *collapsed*: +0.0191 (consistent, 32× its std) on
+  instruct → +0.0020 (≈ its own std 0.0023, sign flips across seeds) on the base.
+  On the base, masked vs unmasked is statistically indistinguishable.
+- mechanism (hypothesis, ties to math/03 §4): a base model must *learn the ChatML
+  structure / instruction-following format*, and the prompt tokens carry that
+  signal. Masking discards it. The already-formatted instruct model didn't need it
+  (so masking was pure gain there); the base is nearer the "training on the prompt
+  helps" regime, so masking gives back roughly what it saves. Masking's value is
+  **regime-dependent**, not universal — exactly the §4 caveat, now demonstrated.
+- second finding: **seed variance jumped ~17×** (instruct masked ±0.0002 →
+  base masked ±0.0035). Base-model LoRA is much less stable run-to-run — a
+  single-seed study would have been misleading here; the paired multi-seed design
+  caught it.
+- honest note: I recommended this pivot *and* predicted masking would amplify; the
+  pivot was worth it (clean, counterintuitive finding + a testable mechanism) but
+  the specific prediction was wrong. Logged as-is.
+- verdict: keep `mask_prompt: true` as default (still the right objective in
+  theory, neutral-to-slightly-positive and harmless on the base) — but drop the
+  claim that masking is a reliable win everywhere. It's a clear win on an
+  already-instruction-tuned base; ~neutral on a base LM.
+- next: (a) test the mechanism — does unmasked train_loss on PROMPT tokens drop a
+  lot for the base (it's learning the format) but barely for instruct? (b) rank
+  sweep on the base; (c) more data (n_train↑) to cut the now-large seed variance.

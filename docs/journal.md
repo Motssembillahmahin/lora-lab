@@ -249,3 +249,36 @@ Append-only narrative of the LoRA Lab. Newest entries at the bottom.
   apples-to-apples). Resisted overclaiming downstream amplification before
   measuring it.
 - Next: re-run masking A/B and the rank sweep on the base config.
+
+---
+
+## Session 9 — masking on the base: prediction refuted (the good kind)
+
+- Re-ran the paired masking A/B (Run 003's exact setup) on the base config.
+
+  ![masking effect by base](math/assets/masking-effect-by-base.png)
+
+  | track | paired Δ (unmasked−masked) | sign |
+  |---|---|---|
+  | instruct (Run 003) | +0.0191 ± 0.0006 | consistent |
+  | base (Run 008) | +0.0020 ± 0.0023 | flips across seeds |
+
+- **I was wrong, cleanly.** I predicted the headroom on the base would make masking
+  a bigger win. The opposite: the consistent +0.0191 instruct win collapsed to a
+  noise-level +0.0020 with the sign flipping. On the base, masked ≈ unmasked.
+- The result is more interesting than the prediction would've been, and it
+  vindicates math/03 §4 (which I had the math-tutor write as an honest counterpoint
+  back in Session 2): a base model must *learn the ChatML format*, and prompt tokens
+  carry that signal — so masking, which throws it away, gives back what it saves.
+  Masking is a clear win only when the model is already formatted (instruct); on a
+  base LM it's ~neutral. Regime-dependent, exactly as §4 hedged.
+- Bonus finding: seed variance exploded ~17× (±0.0002 → ±0.0035). Base-model LoRA
+  is far less stable run-to-run — a single seed would have lied here; the paired
+  3-seed design caught both the collapse and the instability.
+- Meta-lesson for me: I both recommended the pivot and predicted its outcome, and
+  the outcome contradicted me. Logged it straight — the value of the eval harness +
+  seeds is precisely that they can overrule my intuition. The earlier honesty
+  (writing §4 even while masking looked like a clean win) paid off here.
+- Next: test the mechanism directly (does unmasked prompt-token loss fall a lot for
+  the base, little for instruct?), rank sweep on the base, or more data to tame the
+  variance.
