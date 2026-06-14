@@ -52,7 +52,7 @@ def run_allocation(base_cfg, seed, n_train):
         res = evaluate(cfg, adapter)
         res.update({"arm": name, "rank_pattern": rp})
         rows.append(res)
-        print(f"[{name}] response-NLL={res['response_nll']:.4f} ppl={res['perplexity']:.2f}")
+        print(f"[{name}] response-NLL={res['nll']:.4f} ppl={res['perplexity']:.2f}")
     return rows
 
 
@@ -63,7 +63,7 @@ def summarize(rows):
         rp = row["rank_pattern"]
         print(
             f"{row['arm']:>13} {rp['q_proj']:>4} {rp['k_proj']:>4} "
-            f"{row['response_nll']:>13.4f} {row['perplexity']:>11.2f}"
+            f"{row['nll']:>13.4f} {row['perplexity']:>11.2f}"
         )
     best = min(rows, key=lambda row: row["perplexity"])
     print(f"best (same param budget): {best['arm']} ppl={best['perplexity']:.2f}")

@@ -22,6 +22,9 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from src.data import build_example
 
 
+IGNORE_INDEX = -100
+
+
 def weighted_mean(values, weights):
     """Corpus mean: sum(vᵢ·wᵢ) / sum(wᵢ).
 
@@ -34,12 +37,26 @@ def weighted_mean(values, weights):
     return sum(v * w for v, w in zip(values, weights)) / total
 
 
+def invert_label_mask(input_ids, labels):
+    """Flip which tokens are scored: masked (-100) positions become targets and
+    vice-versa. Turns response-masked labels (loss on prompt) into prompt-masked
+    labels (loss on response) — used to measure PROMPT-token NLL (mechanism probe,
+    ADR 0009)."""
+    return [
+        tok if label == IGNORE_INDEX else IGNORE_INDEX
+        for tok, label in zip(input_ids, labels)
+    ]
+
+
 def load_config(path: str) -> dict:
     with open(path) as f:
         return yaml.safe_load(f)
 
 
-def evaluate(cfg: dict, adapter_path: str | None) -> dict:
+def evaluate(cfg: dict, adapter_path: str | None, target: str = "response") -> dict:
+    """target='response' (default) scores loss on response tokens; 'prompt' scores
+    it on the prompt tokens instead (mechanism probe — does training reduce the
+    model's loss on the prompt/format? ADR 0009)."""
     torch.set_num_threads(cfg.get("num_threads", 12))
 
     model_id = cfg["model_id"]
@@ -64,16 +81,19 @@ def evaluate(cfg: dict, adapter_path: str | None) -> dict:
         )
         if e is None:
             continue
+        labels = e["labels"]
+        if target == "prompt":
+            labels = invert_label_mask(e["input_ids"], labels)  # score prompt tokens
         # Scored tokens = non-masked labels after the model's internal left-shift
         # (logits[:-1] vs labels[1:]); this is exactly HF's loss denominator.
-        n_scored = sum(1 for label in e["labels"][1:] if label != -100)
+        n_scored = sum(1 for label in labels[1:] if label != IGNORE_INDEX)
         if n_scored == 0:
             continue
         with torch.no_grad():
             out = model(
                 input_ids=torch.tensor([e["input_ids"]]),
                 attention_mask=torch.tensor([e["attention_mask"]]),
-                labels=torch.tensor([e["labels"]]),
+                labels=torch.tensor([labels]),
             )
         losses.append(out.loss.item())
         token_counts.append(n_scored)
@@ -81,26 +101,28 @@ def evaluate(cfg: dict, adapter_path: str | None) -> dict:
     nll = weighted_mean(losses, token_counts)
     return {
         "adapter": adapter_path or "base",
+        "target": target,
         "examples": len(losses),
-        "response_tokens": sum(token_counts),
-        "response_nll": nll,
+        "scored_tokens": sum(token_counts),
+        "nll": nll,
         "perplexity": math.exp(nll) if nll else float("nan"),
     }
 
 
-def main(config_path: str, adapter_path: str | None) -> None:
+def main(config_path: str, adapter_path: str | None, target: str = "response") -> None:
     cfg = load_config(config_path)
     if adapter_path in (None, "base"):
         adapter_path = None
-    r = evaluate(cfg, adapter_path)
+    r = evaluate(cfg, adapter_path, target=target)
     print(
-        f"[{r['adapter']}] response-NLL={r['response_nll']:.4f}  "
+        f"[{r['adapter']}] {r['target']}-NLL={r['nll']:.4f}  "
         f"perplexity={r['perplexity']:.2f}  "
-        f"({r['examples']} examples, {r['response_tokens']} response tokens)"
+        f"({r['examples']} examples, {r['scored_tokens']} {r['target']} tokens)"
     )
 
 
 if __name__ == "__main__":
     config = sys.argv[1] if len(sys.argv) > 1 else "configs/qwen_0.5b_lora.yaml"
     adapter = sys.argv[2] if len(sys.argv) > 2 else None
-    main(config, adapter)
+    tgt = sys.argv[3] if len(sys.argv) > 3 else "response"
+    main(config, adapter, target=tgt)

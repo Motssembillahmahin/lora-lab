@@ -48,7 +48,7 @@ def run_sweep(base_cfg, r_values, seed, n_train, use_rslora=False):
         res = evaluate(cfg, adapter)
         res.update({"r": r, "alpha": alpha})
         rows.append(res)
-        print(f"[r={r}] response-NLL={res['response_nll']:.4f} ppl={res['perplexity']:.2f}")
+        print(f"[r={r}] response-NLL={res['nll']:.4f} ppl={res['perplexity']:.2f}")
     return rows
 
 
@@ -85,7 +85,7 @@ def summarize(rows):
     print("\n================ rank sweep summary ================")
     print(f"{'r':>4} {'alpha':>6} {'response-NLL':>13} {'perplexity':>11}")
     for row in rows:
-        print(f"{row['r']:>4} {row['alpha']:>6} {row['response_nll']:>13.4f} {row['perplexity']:>11.2f}")
+        print(f"{row['r']:>4} {row['alpha']:>6} {row['nll']:>13.4f} {row['perplexity']:>11.2f}")
     best = min(rows, key=lambda row: row["perplexity"])
     print(f"best perplexity: r={best['r']} ppl={best['perplexity']:.2f}")
     print("====================================================")

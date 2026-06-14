@@ -10,7 +10,7 @@ import math
 
 import pytest
 
-from src.eval import weighted_mean
+from src.eval import invert_label_mask, weighted_mean
 
 
 def test_token_weighting_is_not_mean_of_means():
@@ -32,3 +32,17 @@ def test_zero_total_weight_returns_zero():
     result = weighted_mean([], [])
     assert result == 0.0
     assert not math.isnan(result)
+
+
+def test_invert_label_mask_swaps_scored_tokens():
+    # response-masked labels (prompt=first 2 masked) -> prompt-masked (response masked),
+    # so we can score loss on the PROMPT tokens instead (mechanism probe, Run 009).
+    ids = [10, 11, 12, 13]
+    labels = [-100, -100, 12, 13]
+    assert invert_label_mask(ids, labels) == [10, 11, -100, -100]
+
+
+def test_invert_label_mask_is_involutive():
+    ids = [10, 11, 12, 13]
+    labels = [-100, -100, 12, 13]
+    assert invert_label_mask(ids, invert_label_mask(ids, labels)) == labels

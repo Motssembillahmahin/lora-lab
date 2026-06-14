@@ -40,14 +40,14 @@ def run_study(base_cfg, seeds, n_train, out_root="outputs/study"):
             r = evaluate(cfg, adapter)
             r.update({"seed": seed, "mask_prompt": mask, "tag": tag})
             rows.append(r)
-            print(f"[{tag}] response-NLL={r['response_nll']:.4f} ppl={r['perplexity']:.2f}")
+            print(f"[{tag}] response-NLL={r['nll']:.4f} ppl={r['perplexity']:.2f}")
     return rows
 
 
 def summarize(rows):
     """Print masked vs unmasked means and the paired per-seed deltas."""
-    masked = {r["seed"]: r["response_nll"] for r in rows if r["mask_prompt"]}
-    unmasked = {r["seed"]: r["response_nll"] for r in rows if not r["mask_prompt"]}
+    masked = {r["seed"]: r["nll"] for r in rows if r["mask_prompt"]}
+    unmasked = {r["seed"]: r["nll"] for r in rows if not r["mask_prompt"]}
     seeds = sorted(set(masked) & set(unmasked))
 
     m_mean, m_sd = mean_std([masked[s] for s in seeds])

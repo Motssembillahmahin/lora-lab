@@ -30,8 +30,12 @@ merge: ## Merge the LoRA adapter into the base model
 	uv run python -m src.merge $(ADAPTER)
 
 .PHONY: eval
-eval: ## Response-only eval NLL/perplexity (ADAPTER=base for the un-adapted model)
-	uv run python -m src.eval $(CONFIG) $(ADAPTER)
+eval: ## Eval NLL/perplexity (ADAPTER=base for un-adapted; TARGET=prompt for prompt-token loss)
+	uv run python -m src.eval $(CONFIG) $(ADAPTER) $(TARGET)
+
+.PHONY: mechanism
+mechanism: ## Probe: does unmasked training cut prompt-NLL more for base than instruct? (SEED=0 N=150)
+	uv run python -m src.mechanism $(SEED) $(N)
 
 .PHONY: study
 study: ## Paired seed study: masked vs unmasked across seeds (SEEDS=0,1,2 N=150)
