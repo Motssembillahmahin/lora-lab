@@ -191,3 +191,35 @@ Append-only narrative of the LoRA Lab. Newest entries at the bottom.
   the U is a small-data phenomenon — more data would likely flatten the high-r rise.
 - Next: per-module rank_pattern (01 OQ4), or a non-instruct base / more data to get
   effects bigger than the ~0.1–0.4 ppl range everything's been living in.
+
+---
+
+## Session 7 — per-module rank allocation: a clean negative result
+
+- Answered 01 OQ4. Wired `rank_pattern`/`alpha_pattern` into train.py, built
+  `src/allocation.py` / `make alloc`. Three **budget-matched** arms (all exactly
+  1,081,344 params — verified live): uniform 8/8, wide-heavy q/o=12 k/v=1,
+  narrow-heavy q/o=4 k/v=15, each α/r=2 per module. TDD'd (27 tests). ADR 0007.
+
+  ![rank allocation @ fixed budget](math/assets/rank-allocation.png)
+
+  | arm | narrow-heavy | uniform | wide-heavy |
+  |-----|---|---|---|
+  | ppl | **7.53** | 7.54 | 7.55 |
+
+- **My hypothesis was wrong, and that's the interesting part.** I expected the
+  wide q/o matrices (rank 8 of 896 = 0.89%, vs k/v 8 of 128 = 6.25%) to be
+  rank-starved, so wide-heavy should win. It came *last*. narrow-heavy edged it,
+  wide-heavy (rank-1 k/v) lost. Total spread ~0.02 ppl — allocation barely matters;
+  the only clear signal is *don't starve a module to rank 1*.
+- The reconciliation taught me the real lesson: the "fraction of full matrix rank"
+  intuition is the wrong lens. What matters is the intrinsic rank of each module's
+  *update*, and the sweep already showed that's low (≤~8) everywhere. So q/o gains
+  nothing from 12 (we knew r>8 plateaus), and k/v at rank 1 falls below its small
+  need. Two experiments composing into one coherent picture.
+- Honest: tiny effect, single seed (ordering above the ±0.0002 seed noise but
+  small enough that a few seeds would firm it up), instruct base + tiny data.
+  Verdict: keep uniform r=8 — per-module reallocation isn't worth it here.
+- The recurring ceiling is now unmistakable: every result from Run 002 on lives in
+  a ~0.02–0.4 ppl band because the base is already instruct-tuned and the data is
+  tiny. Next real move is a weaker base / more data so experiments can be decisive.

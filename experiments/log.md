@@ -195,3 +195,38 @@ Template:
   but buys nothing above r=8 and hurts there.) The §3 question is answered.
 - next: per-module rank_pattern (01 OQ4), or a non-instruct base / more data so the
   effects aren't all in the ~0.1–0.4 ppl range.
+
+## Run 006 — per-module rank allocation @ fixed budget (ADR 0007, 01 OQ4)
+- harness: `make alloc SEED=0 N=150`, `src/allocation.py`. Three arms, **all
+  exactly 1,081,344 trainable params** (verified live by print_trainable_parameters
+  ×3), α/r=2 per module via rank_pattern+alpha_pattern, vanilla, masked, seed 0,
+  n=150. Same budget → lower ppl = better *allocation*. Plot:
+  `docs/math/assets/rank-allocation.png`.
+- numbers (held-out response perplexity):
+
+  | arm          | q/o | k/v | response-NLL | ppl  |
+  |--------------|----:|----:|-------------:|-----:|
+  | narrow-heavy |   4 |  15 | **2.0186**   | 7.53 |
+  | uniform      |   8 |   8 | 2.0201       | 7.54 |
+  | wide-heavy   |  12 |   1 | 2.0217       | 7.55 |
+
+- read: **the GQA "q/o is rank-starved, feed it" hypothesis is NOT supported —
+  mildly contradicted.** narrow-heavy (rank into k/v) is best; wide-heavy (rank-1
+  k/v) is worst; uniform sits between. The total spread is **~0.02 ppl** — tiny,
+  though the ordering is above seed noise (full range ≈0.0031 NLL ≈ 15× the
+  ±0.0002 seed std from Run 003). Honest takeaway: **allocation barely matters
+  here; the only clear signal is don't starve a module to rank 1.**
+- why this reconciles with Runs 004/005: the task's intrinsic rank is low (≤~8),
+  so q/o gains nothing from 12 (we already saw r>8 plateaus/overfits), while
+  crushing k/v to rank 1 drops it *below* its small intrinsic need → the wide-heavy
+  penalty. The "fraction-of-full-rank" intuition (k/v 8/128 vs q/o 8/896) was the
+  wrong lens: what matters is the intrinsic rank of each module's *update*, which
+  is low everywhere — not how much of the full matrix rank you're using.
+- honest caveats: single seed (ordering likely real but effect tiny — a few seeds
+  would firm up the ranking given how small 0.02 ppl is); tiny data; instruct base.
+  rank-1 k/v was a deliberately extreme probe and behaved as the one clear loser.
+- verdict: **keep uniform r=8** — simplest and statistically indistinguishable
+  from the best. Per-module reallocation isn't worth it on this model/task.
+- next: a non-instruct base and/or 10× data — every effect across Runs 002–006
+  lives in a ~0.02–0.4 ppl band because the instruct base + tiny data ceiling
+  everything. A weaker base would make these experiments decisive.
