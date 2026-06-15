@@ -282,3 +282,40 @@ Append-only narrative of the LoRA Lab. Newest entries at the bottom.
 - Next: test the mechanism directly (does unmasked prompt-token loss fall a lot for
   the base, little for instruct?), rank sweep on the base, or more data to tame the
   variance.
+
+---
+
+## Session 10 — mechanism probe: deep claim confirmed, my story refuted
+
+- Built prompt-NLL eval (`invert_label_mask` + `evaluate(target="prompt")`,
+  TDD'd) and `make mechanism`: train an unmasked adapter per track, measure how
+  much it lowers prompt- vs response-NLL. ADR 0009.
+
+  ![prompt vs response NLL drop](math/assets/mechanism-prompt-vs-response.png)
+
+  | track | prompt-NLL drop | response-NLL drop |
+  |---|---|---|
+  | instruct | +1.26 | +0.11 |
+  | base | +0.82 | +0.10 |
+
+- **Confirmed the foundational claim, refuted my own explanation — same probe.**
+  - ✓ math/03 §3, made vivid: BOTH models spend ~90% of unmasked training's NLL
+    improvement on PROMPT tokens. The "you're mostly training the model to predict
+    the instruction" waste is real and large.
+  - ✗ My Run 008 story (base learns format from prompt → bigger prompt-drop) is
+    wrong: instruct drops prompt-NLL MORE (1.26 vs 0.82). The real reason masking
+    didn't transfer: the base's response learning is near-saturated/noise-limited
+    on 150 examples, so masking's extra response-gradient (which instruct converts:
+    +0.019) yields almost nothing for the base (+0.003) and drowns in its big seed
+    variance.
+- That's TWO wrong predictions from me in a row on the base track (Run 008, 009),
+  both caught by measurement. The honest meta-lesson, now thoroughly earned: my
+  intuitions about this regime are unreliable, and the value of the harness is that
+  it keeps overruling them. I'd have confidently believed the format-learning story
+  without the probe.
+- Caveat I flagged: prompt-NLL is dominated by the ~arbitrary instruction TEXT, not
+  just ChatML scaffolding, so part of that +1.26/+0.82 is fitting the Dolly
+  instruction distribution (memorizing), not format per se. Splitting scaffolding
+  vs instruction-text would sharpen it.
+- Next: more data (lift the base out of the noise-limited regime and re-test
+  masking), rank sweep on the base, or the scaffolding/instruction split.

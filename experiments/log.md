@@ -297,3 +297,40 @@ Template:
 - next: (a) test the mechanism — does unmasked train_loss on PROMPT tokens drop a
   lot for the base (it's learning the format) but barely for instruct? (b) rank
   sweep on the base; (c) more data (n_train↑) to cut the now-large seed variance.
+
+## Run 009 — mechanism probe: §3 confirmed, my §4 story refuted (ADR 0009)
+- harness: `make mechanism SEED=0 N=150`, `src/mechanism.py`. Trained one UNMASKED
+  adapter per track, measured prompt-NLL and response-NLL drop (floor − tuned) on
+  the held-out slice. Plot: `docs/math/assets/mechanism-prompt-vs-response.png`.
+- numbers (NLL drop from unmasked training):
+
+  | track | prompt: floor→tuned (drop) | response: floor→tuned (drop) |
+  |-------|---------------------------:|-----------------------------:|
+  | instruct | 3.3975 → 2.1331 (**+1.26**) | 2.1440 → 2.0387 (+0.11) |
+  | base     | 3.8042 → 2.9871 (**+0.82**) | 2.3291 → 2.2291 (+0.10) |
+
+- **confirmed (math/03 §3), vividly:** for BOTH models, unmasked training puts
+  ~90% of its NLL improvement into PROMPT tokens (+1.26 / +0.82) vs ~+0.10 on
+  response. Unmasked training overwhelmingly learns to predict tokens we never
+  generate — the convex-combination waste argument, measured directly.
+- **refuted (my Run 008 explanation):** I predicted the *base* would drop
+  prompt-NLL MORE (learning the ChatML format it lacks). The reverse — *instruct*
+  drops it more (1.26 vs 0.82). So "the base needs prompt signal to learn the
+  format" does NOT explain why masking failed to transfer.
+- revised explanation: response-NLL drop under *unmasked* is ~identical (0.11
+  instruct, 0.10 base). The masking benefit = the EXTRA response gain from
+  concentrating gradient on response. Instruct converts it (unmasked 0.105 →
+  masked 0.124, +0.019); the base barely does (0.100 → 0.103, +0.003). The base's
+  response learning is near-saturated / noise-limited on 150 examples (cf. Run
+  008's 17× seed variance), so masking's small benefit drowns in noise rather than
+  being mechanistically cancelled by format-learning.
+- honest note: this is my SECOND wrong prediction in a row on the base (Run 008
+  amplification, Run 009 mechanism). Both corrected by measurement. The probe
+  still earned its keep: it nailed the §3 macro-claim and killed a plausible-but-
+  wrong story I'd otherwise have believed.
+- caveats: single seed, n=150; prompt-NLL is dominated by the (hard, ~arbitrary)
+  instruction TEXT, not just format scaffolding — so "prompt-NLL drop" partly
+  reflects fitting the Dolly instruction distribution, not only ChatML structure.
+- next: (a) more data (n_train↑) to lift the base out of the noise-limited regime
+  and re-test masking; (b) rank sweep on the base; (c) per-segment split of prompt
+  into scaffolding vs instruction-text to separate format-learning from memorizing.
