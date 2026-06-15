@@ -37,6 +37,10 @@ eval: ## Eval NLL/perplexity (ADAPTER=base for un-adapted; TARGET=prompt for pro
 mechanism: ## Probe: does unmasked training cut prompt-NLL more for base than instruct? (SEED=0 N=150)
 	uv run python -m src.mechanism $(SEED) $(N)
 
+.PHONY: datasize
+datasize: ## Data-size study (base): response NLL vs n_train, masked vs unmasked (NS=150,300,600,1200 SEED=0)
+	uv run python -m src.datasize $(CONFIG) $(NS) $(SEED)
+
 .PHONY: study
 study: ## Paired seed study: masked vs unmasked across seeds (SEEDS=0,1,2 N=150)
 	uv run python -m src.study $(CONFIG) $(SEEDS) $(N)
