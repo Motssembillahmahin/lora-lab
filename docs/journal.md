@@ -319,3 +319,35 @@ Append-only narrative of the LoRA Lab. Newest entries at the bottom.
   vs instruction-text would sharpen it.
 - Next: more data (lift the base out of the noise-limited regime and re-test
   masking), rank sweep on the base, or the scaffolding/instruction split.
+
+---
+
+## Session 11 — data-size study: an incident + a minimal signal
+
+- The full n∈{150,300,600,1200} study went wrong twice. (1) I forgot `CONFIG=`, so
+  `make datasize` ran the INSTRUCT model (inherited the Makefile's global default),
+  not the base — the wrong experiment entirely. (2) The machine was hammered after
+  days of runs: load ~12 on 6 cores + 2.1 GiB swap → ~60× slowdown (33 s → ~2089
+  s/step). It ran ~20 h and reached only the n=600 arm. I killed it.
+- Owned it, fixed the root causes: `make datasize` now defaults to the base config
+  (a base-only study shouldn't depend on remembering a flag), and `num_threads
+  12→6` (one per physical core; 12 oversubscribed). Load dropped to 0.52, relaunch
+  ran at a normal 27 s/it.
+- Minimal study (what I could afford cleanly): n=600 base, masked vs unmasked,
+  eval on disjoint train[600:700]. masked 1.9587 < unmasked 1.9662 (Δ +0.0075),
+  vs Run 008's +0.0020 at n=150. Response dropped 0.19 from floor (vs ~0.10 at
+  n=150).
+- **The data-size thesis got real (if soft) support.** Masking re-emerges with
+  more data and response learning de-saturates — reconciling Run 009 (masking
+  wasn't dead, just noise-limited at n=150). Notably this is the direction I
+  over-confidently predicted in Sessions 8–9 and got wrong twice; with 4× data it
+  finally shows. I'm stating it as suggestive, not vindication: single seed, and
+  the n=150/n=600 deltas are on different eval slices (data size confounded with
+  slice difficulty). A clean version needs matched slices + multiple seeds.
+- Operational lesson worth keeping: on a shared CPU box, (a) make experiment
+  targets default to their own config so a forgotten flag can't silently run the
+  wrong model, (b) cap threads to physical cores, (c) watch swap — disk swapping,
+  not compute, was the 60× killer. Caught it by checking `uptime`/`free`, not by
+  staring at the loss.
+- Next: a clean matched-slice, multi-seed n∈{150,600} re-test, or the base rank
+  sweep — when the machine is fresh.

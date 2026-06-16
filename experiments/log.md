@@ -334,3 +334,43 @@ Template:
 - next: (a) more data (n_train↑) to lift the base out of the noise-limited regime
   and re-test masking; (b) rank sweep on the base; (c) per-segment split of prompt
   into scaffolding vs instruction-text to separate format-learning from memorizing.
+
+## Run 010 — data-size study (ADR 0010): an incident, then a minimal result
+### Incident (logged honestly)
+- First launch was wrong on two counts: (1) **wrong config** — `make datasize`
+  inherited the Makefile's global `CONFIG ?= …instruct`, so it ran the INSTRUCT
+  model, not the base (my invocation error, missing `CONFIG=`). (2) **machine
+  resource exhaustion** — load avg ~12 on 6 cores + 2.1 GiB swap (memory pressure
+  → disk swapping) drove per-step time from ~33 s to ~2089 s (~60×). Killed after
+  ~20 h on the n=600 arm (5th of 8). The full n∈{...,1200} plan is infeasible on
+  this CPU box in a degraded state.
+- Fixes: `make datasize` now defaults `CONFIG := configs/qwen_0.5b_base_lora.yaml`
+  (the study is base-specific); base config `num_threads: 12 → 6` (1 per physical
+  core — 12 oversubscribed under other load). After killing, load fell to 0.52 and
+  the relaunch ran at 27 s/it (normal).
+
+### Minimal result — n=600, base, masked vs unmasked (single seed)
+- eval on the disjoint slice `train[600:700]` (eval_start pinned to max(n)=600).
+  Floor (base, no adapter): 2.1465. (Lower than Run 007's 2.33 only because this
+  is a different, easier eval slice — absolute NLLs are NOT comparable across
+  slices, only within a study.)
+
+  | n (base) | masked NLL | unmasked NLL | Δ (unmasked−masked) | eval slice |
+  |---------:|-----------:|-------------:|--------------------:|------------|
+  | 150 (Run 008) | 2.2260 | 2.2281 | +0.0020 (sign flipped) | train[300:400] |
+  | 600 (Run 010) | **1.9587** | **1.9662** | **+0.0075** | train[600:700] |
+
+- read: at n=600 masking clearly helps the base (masked better by 0.0075, ~3.7× the
+  n=150 delta and ~2× the n=150 seed std). Response-NLL dropped 0.19 from floor vs
+  ~0.10 at n=150 → response learning **de-saturated** with 4× data. This reconciles
+  Run 009: masking isn't *dead* on the base, it was *noise-limited at n=150* and
+  re-emerges with more data — the direction I'd originally (over-confidently)
+  predicted, now with actual support.
+- honest caveats (this is suggestive, not conclusive): (1) single seed per arm;
+  (2) the n=150 and n=600 deltas are on **different eval slices**, so the growth
+  conflates data size with slice difficulty — a clean version needs n=150 and
+  n=600 on the SAME slice, multiple seeds; (3) only one n beyond 150, so no real
+  curve. The full multi-n study remains the right experiment when the machine is
+  fresh (reboot/cool) and run with num_threads=6, n capped where it doesn't swap.
+- next: clean re-test — masked vs unmasked at n∈{150,600} on ONE fixed slice, 2-3
+  seeds, base, num_threads=6; or rank sweep on the base.

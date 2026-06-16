@@ -38,6 +38,7 @@ mechanism: ## Probe: does unmasked training cut prompt-NLL more for base than in
 	uv run python -m src.mechanism $(SEED) $(N)
 
 .PHONY: datasize
+datasize: CONFIG := configs/qwen_0.5b_base_lora.yaml   # base-model study by default; override with CONFIG=
 datasize: ## Data-size study (base): response NLL vs n_train, masked vs unmasked (NS=150,300,600,1200 SEED=0)
 	uv run python -m src.datasize $(CONFIG) $(NS) $(SEED)
 
