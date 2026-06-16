@@ -66,6 +66,10 @@ format: ## Auto-format with ruff
 test: ## Run the test suite
 	uv run pytest -q
 
+.PHONY: quant-demo
+quant-demo: ## NF4 codec demo: NF4 vs INT4 reconstruction error on N(0,1) and real Qwen q_proj (N=4096 BLOCK=64)
+	uv run python -m src.quant_demo $(N) $(BLOCK)
+
 .PHONY: clean
 clean: ## Remove caches and build artifacts (keeps outputs/ and data/)
 	rm -rf .ruff_cache .pytest_cache **/__pycache__ build *.egg-info

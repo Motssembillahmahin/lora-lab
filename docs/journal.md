@@ -351,3 +351,52 @@ Append-only narrative of the LoRA Lab. Newest entries at the bottom.
   staring at the loss.
 - Next: a clean matched-slice, multi-seed n∈{150,600} re-test, or the base rank
   sweep — when the machine is fresh.
+
+---
+
+## Session 12 — QLoRA math thread
+
+- Opened branch `feat/qlora-math`. This closes the last of the four Session 0
+  threads: math derivation (01), rank/alpha (02), loss masking (03), and now
+  QLoRA quantization (04).
+- Dispatched math-tutor to write `docs/math/04-qlora-quantization.md` (703 lines).
+  The arc: uniform quantization as a baseline → NF4 derivation (equal-mass
+  quantile bins for Gaussian weights, the Lloyd-Max sense of optimality) →
+  double quantization bit accounting (4.127 bits/param total) → QLoRA assembly
+  (dequant-on-the-fly forward, gradient flow through the frozen quantized weight,
+  memory equation: 84 → 14.6 → 4.1 GB for a 7B model at fp16 / NF4 / NF4+dq)
+  → paged optimizers → explicit CPU caveat. The caveat is the honest core of the
+  decision: bitsandbytes CUDA kernels provide the fused dequant-on-the-fly matmul;
+  on CPU you dequantize the whole weight before the matmul, which defeats the
+  memory saving. We study the codec, not the training kernel.
+- TDD'd `src/quant.py` — 19 tests written first (RED = ImportError at import),
+  then implemented to GREEN. Two tests needed post-implementation correction, both
+  revealing genuine subtleties:
+  - `test_nf4_levels_symmetric` was wrong. NF4 is NOT perfectly symmetric: the
+    negative and positive halves are derived independently from the Gaussian
+    quantile function, with asymmetric zero handling (zero is placed in the
+    negative half). Corrected to test only the provable invariants: endpoints ±1.0
+    and presence of both positive and negative levels.
+  - `test_absmax_roundtrip_recovers_sign` was wrong. Small values can round to
+    the nearest quantized level which happens to be zero (i.e., quantized-zero,
+    not the absmax-scaled zero), so the dequantized output is 0.0 regardless of
+    sign. Corrected to filter both `x` and `x_hat` for nonzero before comparing
+    signs.
+- Full suite: 53/53 green, no regressions to any earlier test.
+- Added `make quant-demo` target → `src/quant_demo.py`. The demo runs the
+  reconstruction benchmark on synthetic N(0,1) data AND a real Qwen2.5-0.5B
+  q_proj weight, then prints NF4 vs INT4 MSE and a double-quant bit accounting
+  table. Runs in seconds on CPU.
+- Key learning: NF4 wins on Gaussian-distributed weights because equal-mass
+  quantile bins concentrate levels where the density is highest (near zero),
+  matching the Lloyd-Max optimality condition for that source distribution. Uniform
+  INT4 wastes half its levels on the sparse tails and under-represents the
+  near-zero peak where most weight mass lives. The win is not heuristic; it
+  follows from the source statistics.
+- ADR 0011 records the decision to implement the thread as a pure CPU-runnable
+  codec + math doc rather than skip it (the math is a core learning goal,
+  independent of whether training is feasible) or pull in bitsandbytes CPU support
+  (adds a GPU-library dep and obscures the 50-line codec).
+- Next: the four Session 0 threads are now complete. Natural candidates: a clean
+  matched-slice, multi-seed n∈{150,600} re-test of the data-size question, or the
+  base rank sweep — when the machine is fresh.
